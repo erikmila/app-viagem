@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>Despesas de Viagem</title>
+
+<link rel="manifest" href="manifest.json">
+
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Viagem">
+
+<link rel="apple-touch-icon" href="icon.png">
+
+<style>
+
+body{
+font-family:Arial;
+background:#f4f4f4;
+margin:0;
+padding:20px;
+}
+
+input,button{
+width:100%;
+padding:12px;
+margin-top:10px;
+}
+
+.card{
+background:white;
+padding:10px;
+margin-top:10px;
+border-radius:8px;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<h2>Despesas de Viagem</h2>
+
+<input type="date" id="data">
+<input id="descricao" placeholder="Descrição">
+<input type="number" id="valor" placeholder="Valor">
+
+<button onclick="add()">Adicionar</button>
+
+<div id="lista"></div>
+
+<script>
+
+let dados = JSON.parse(localStorage.getItem("dados")) || []
+
+function salvar(){
+localStorage.setItem("dados", JSON.stringify(dados))
+}
+
+function add(){
+
+let data = document.getElementById("data").value
+let descricao = document.getElementById("descricao").value
+let valor = parseFloat(document.getElementById("valor").value)
+
+if(!data || !descricao || !valor){
+alert("Preencha tudo")
+return
+}
+
+dados.push({data,descricao,valor})
+
+salvar()
+mostrar()
+
+}
+
+function mostrar(){
+
+let lista=document.getElementById("lista")
+lista.innerHTML=""
+
+dados.forEach(d=>{
+
+lista.innerHTML+=`
+<div class="card">
+${d.data} - ${d.descricao} - R$ ${d.valor}
+</div>
+`
+
+})
+
+}
+
+mostrar()
+
+if('serviceWorker' in navigator){
+navigator.serviceWorker.register('sw.js')
+}
+
+</script>
+
+</body>
+</html>
