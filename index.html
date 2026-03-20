@@ -12,30 +12,21 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Viagem">
-
 <link rel="apple-touch-icon" href="icon.png">
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
 
-body{
-font-family:Arial;
-background:#f4f4f4;
-margin:0;
-padding:20px;
-}
-
-input,button{
-width:100%;
-padding:12px;
-margin-top:10px;
-}
-
-.card{
-background:white;
-padding:10px;
-margin-top:10px;
-border-radius:8px;
-}
+body{font-family:Arial;margin:0;background:#f2f2f2}
+header{background:#0f172a;color:white;padding:15px;text-align:center}
+.container{padding:15px}
+input,select,button{width:100%;padding:10px;margin-top:8px}
+.card{background:white;padding:10px;margin-top:10px;border-radius:8px}
+nav{position:fixed;bottom:0;width:100%;display:flex;background:white;border-top:1px solid #ccc}
+nav button{flex:1;padding:12px;border:none;background:white}
+.screen{display:none}
+.active{display:block}
 
 </style>
 
@@ -43,60 +34,258 @@ border-radius:8px;
 
 <body>
 
-<h2>Despesas de Viagem</h2>
+<header>Despesas de Viagem</header>
+
+<div class="container">
+
+<!-- DASHBOARD -->
+<div id="dashboard" class="screen active">
+<div class="card">Total: R$ <span id="total">0</span></div>
+<div class="card">Média por dia: R$ <span id="media">0</span></div>
+<div class="card"><canvas id="grafico"></canvas></div>
+</div>
+
+<!-- VIAGENS -->
+<div id="viagens" class="screen">
+
+<input id="novaViagem" placeholder="Nome da viagem">
+<button onclick="criarViagem()">Criar viagem</button>
+
+<select id="viagemSelect" onchange="trocarViagem()"></select>
+
+</div>
+
+<!-- DESPESAS -->
+<div id="despesas" class="screen">
 
 <input type="date" id="data">
 <input id="descricao" placeholder="Descrição">
+<input id="local" placeholder="Local">
 <input type="number" id="valor" placeholder="Valor">
 
-<button onclick="add()">Adicionar</button>
+<select id="categoria">
+<option>Alimentação e Bebidas</option>
+<option>Bagagem despachada</option>
+<option>Bares e Restaurantes</option>
+<option>Chip Celular</option>
+<option>Combustível</option>
+<option>Compras</option>
+<option>Conveniência</option>
+<option>Diversos</option>
+<option>Estacionamento</option>
+<option>Farmácia</option>
+<option>Hospedagem</option>
+<option>Ifood</option>
+<option>Ingressos e entradas</option>
+<option>Lavanderia</option>
+<option>Locação veículo</option>
+<option>Outros</option>
+<option>Passagem Aérea</option>
+<option>Passeios</option>
+<option>Pedágio</option>
+<option>Presentes</option>
+<option>Restaurantes</option>
+<option>Saúde</option>
+<option>Sorvete & Picolé</option>
+<option>Supermercado</option>
+<option>Telefone</option>
+<option>Transfer</option>
+<option>Transporte</option>
+<option>Uber</option>
+</select>
+
+<button onclick="addDespesa()">Adicionar</button>
 
 <div id="lista"></div>
 
+</div>
+
+<!-- RELATÓRIO -->
+<div id="relatorio" class="screen">
+
+<div class="card" id="resumo"></div>
+
+<button onclick="exportar()">Exportar Excel</button>
+
+</div>
+
+</div>
+
+<nav>
+<button onclick="show('dashboard')">📊</button>
+<button onclick="show('viagens')">✈️</button>
+<button onclick="show('despesas')">💳</button>
+<button onclick="show('relatorio')">📄</button>
+</nav>
+
 <script>
 
-let dados = JSON.parse(localStorage.getItem("dados")) || []
+let db = JSON.parse(localStorage.getItem("db_viagens")) || {viagens:[], atual:null}
+let chart = null
 
 function salvar(){
-localStorage.setItem("dados", JSON.stringify(dados))
+localStorage.setItem("db_viagens", JSON.stringify(db))
 }
 
-function add(){
+function criarViagem(){
 
-let data = document.getElementById("data").value
-let descricao = document.getElementById("descricao").value
-let valor = parseFloat(document.getElementById("valor").value)
+let nome=document.getElementById("novaViagem").value
 
-if(!data || !descricao || !valor){
-alert("Preencha tudo")
+if(!nome){
+alert("Digite o nome da viagem")
 return
 }
 
-dados.push({data,descricao,valor})
+db.viagens.push({nome,despesas:[]})
+db.atual=db.viagens.length-1
 
 salvar()
-mostrar()
+carregar()
 
 }
 
-function mostrar(){
+function trocarViagem(){
+
+db.atual=parseInt(document.getElementById("viagemSelect").value)
+
+salvar()
+carregar()
+
+}
+
+function addDespesa(){
+
+if(db.atual == null){
+alert("Crie ou selecione uma viagem primeiro")
+return
+}
+
+let data = document.getElementById("data").value
+let descricao = document.getElementById("descricao").value
+let local = document.getElementById("local").value
+let valor = parseFloat(document.getElementById("valor").value)
+let categoria = document.getElementById("categoria").value
+
+if(!data || !descricao || !local || !valor){
+alert("Preencha todos os campos")
+return
+}
+
+let v = db.viagens[db.atual]
+
+v.despesas.push({data,descricao,local,valor,categoria})
+
+salvar()
+carregar()
+
+}
+
+function remover(i){
+
+if(confirm("Excluir despesa?")){
+db.viagens[db.atual].despesas.splice(i,1)
+salvar()
+carregar()
+}
+
+}
+
+function carregar(){
+
+let select=document.getElementById("viagemSelect")
+select.innerHTML=""
+
+db.viagens.forEach((v,i)=>{
+select.innerHTML+=`<option value="${i}">${v.nome}</option>`
+})
+
+if(db.atual != null){
+select.value=db.atual
+}
 
 let lista=document.getElementById("lista")
 lista.innerHTML=""
 
-dados.forEach(d=>{
+let total=0
+let categorias={}
+let diasMap={}
+
+if(db.atual!=null){
+
+db.viagens[db.atual].despesas.forEach((d,i)=>{
 
 lista.innerHTML+=`
 <div class="card">
-${d.data} - ${d.descricao} - R$ ${d.valor}
+<b>${d.descricao}</b><br>
+${d.data} - ${d.local}<br>
+${d.categoria}<br>
+R$ ${d.valor}<br>
+<button onclick="remover(${i})">Excluir</button>
 </div>
 `
+
+total+=d.valor
+
+categorias[d.categoria]=(categorias[d.categoria]||0)+d.valor
+diasMap[d.data]=true
 
 })
 
 }
 
-mostrar()
+document.getElementById("total").innerText=total.toFixed(2)
+
+let dias=Object.keys(diasMap).length || 1
+document.getElementById("media").innerText=(total/dias).toFixed(2)
+
+if(chart){chart.destroy()}
+
+let ctx=document.getElementById("grafico")
+
+chart=new Chart(ctx,{
+type:"pie",
+data:{
+labels:Object.keys(categorias),
+datasets:[{data:Object.values(categorias)}]
+}
+})
+
+let resumo=document.getElementById("resumo")
+resumo.innerHTML=""
+
+for(let c in categorias){
+resumo.innerHTML+=`${c}: R$ ${categorias[c].toFixed(2)}<br>`
+}
+
+}
+
+function exportar(){
+
+if(db.atual==null) return
+
+let texto="Data,Descricao,Local,Valor,Categoria\n"
+
+db.viagens[db.atual].despesas.forEach(d=>{
+texto+=`${d.data},${d.descricao},${d.local},${d.valor},${d.categoria}\n`
+})
+
+let blob=new Blob([texto],{type:"text/csv"})
+
+let a=document.createElement("a")
+a.href=URL.createObjectURL(blob)
+a.download="despesas_viagem.csv"
+a.click()
+
+}
+
+function show(id){
+
+document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"))
+document.getElementById(id).classList.add("active")
+
+}
+
+carregar()
 
 if('serviceWorker' in navigator){
 navigator.serviceWorker.register('sw.js')
